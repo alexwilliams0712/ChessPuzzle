@@ -65,7 +65,6 @@ class Board:
     @my_logger
     def step_forward(self, square):
         # print("going forward")
-        print(square)
         position_options = {
             "queen": Queen(square, self.m, self.n).get_threatening(),
             "rook": Rook(square, self.m, self.n).get_threatening(),
@@ -86,12 +85,12 @@ class Board:
                 and ({"piece": piece, "position": square} not in self.removed_moves)
             ):
                 # print("Forward ", self.floating_pieces[piece])
-                print("----------------")
+                # print("----------------")
                 self.current_threatened += position_options[piece]
                 self.existing_positions.loc[square[0], square[1]] = piece
                 self.moves.append({"piece": piece, "position": square})
                 self.floating_pieces[piece] -= 1
-                print(self.existing_positions)
+                # print(self.existing_positions)
                 return
 
     @my_logger
@@ -106,24 +105,11 @@ class Board:
         }
 
 
-        # y = [self.valid_configurations[x] for x, _ in enumerate(self.valid_configurations) if self.valid_configurations[x].equals(self.valid_configurations[x-1]) is False]
-        # for a in y:
-        #     print(a)
-        #     print("++++++++++++++++++++")
 
 
+        if (sum(self.floating_pieces.values()) == 0) and (self.existing_positions.to_dict(orient="records") not in self.valid_configurations):
 
-
-        if (sum(self.floating_pieces.values()) == 0) and all(
-            [
-                ~self.existing_positions.equals(self.valid_configurations[x])
-                for x in range(len(self.valid_configurations))
-            ]
-        ):
-            # print(sum(self.floating_pieces.values()))
-
-            self.valid_configurations.append(self.existing_positions)
-        # print(self.existing_positions)
+            self.valid_configurations.append(self.existing_positions.to_dict(orient="records"))
         for coordinates in position_options[self.moves[-1]["piece"]]:
             if coordinates in self.current_threatened:
                 self.current_threatened.remove(coordinates)
@@ -162,12 +148,12 @@ class Board:
                         self.floating_pieces.values()
                     ) > 0:
                         self.step_forward([row_loc, col_loc])
-                    elif ([row_loc, col_loc] == self.last_square) or sum(
+                    elif ([row_loc, col_loc] == self.last_square) or (sum(
                         self.floating_pieces.values()
-                    ) == 0:
+                    ) == 0):
                         if len(self.moves) > 0:
                             self.step_backward([row_loc, col_loc])
-            input()
+            # input()
 
             if self.start_square[1] < self.m - 1:
                 self.last_square = self.start_square
@@ -190,10 +176,10 @@ class Board:
             self.removed_moves = []
 
 
-        self.valid_configurations = pd.Series(self.valid_configurations).drop_duplicates().tolist()
+        # self.valid_configurations = pd.Series(self.valid_configurations).drop_duplicates().tolist()
         print(len(self.valid_configurations))
         for conf in self.valid_configurations:
-            print(conf)
+            print(pd.DataFrame(conf))
             print("-------------------------")
 
 
