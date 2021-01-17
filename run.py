@@ -49,15 +49,15 @@ class Board:
         self.base_pieces = {"Q": Q, "R": R, "B": B, "N": N, "K": K}
         self.floating_pieces = (
             self.base_pieces.copy()
-        )  # base will be fixed, floating will change
-        self.x = m  # width
-        self.y = n  # height
+        )  # base will be fixed, floating will change as loop through
+        self.x = m  # width - x because cartesian
+        self.y = n  # height - y because cartesian
         self.base_board = pd.DataFrame([["x"] * self.x] * self.y)  # create the board
-        self.valid_configurations = []  # list of configs, each a pandas df
-        self.current_threatened = []  # current config, which squares are threatened
+        self.valid_configurations = []  # list of configs, each a pandas df to dict
         self.existing_positions = self.base_board.copy()  # positions in current config
         self.moves = []  # list of moves, will traverse back up this
-        self.removed_moves = []
+        self.removed_moves = []  # List of moves removed by backsteps
+        self.completed = False
 
     @my_logger
     def check_board_legal(self):
@@ -68,18 +68,24 @@ class Board:
             raise SmallBoard("Board too small")
 
     def find_next_square(self, square):
+        """
+        This function finds the next square after the current square
+        """
         if square[1] < self.y - 1:
             square[1] += 1
         elif square[0] < self.x - 1:
             square[1] = 0
             square[0] += 1
         elif square[0] == self.x - 1 and square[1] == self.y - 1:
-            square[0] = self.x
-            square[1] = self.y
+            square[0] = 0
+            square[1] = 0
         return square
 
     @my_logger
     def step_forward(self, square):
+        """
+        This function steps forward through the tree
+        """
         if square[0] >= self.x or square[1] >= self.y:
             return
         position_options = {
@@ -92,40 +98,34 @@ class Board:
 
         for piece in position_options:
             # Finds the value of the squares this piece  can threaten
-            # print(position_options[piece])
             existing_list = [
-                self.existing_positions[position_options[piece][a][1]].iloc[
-                    position_options[piece][a][0]
+                self.existing_positions[position_options[piece][a][0]].iloc[
+                    position_options[piece][a][1]
                 ]
                 for a in range(len(position_options[piece]))
             ]
-            # print(existing_list)
             if (
                 (self.floating_pieces[piece] > 0)
-                and (all(a == self.base_board[0].iloc[0] for a in existing_list))
-                and ({"piece": piece, "position": square} not in self.removed_moves)
+                & (all(a == self.base_board[0].iloc[0] for a in existing_list))
+                & (
+                    {"piece": piece, "position": square.copy()}
+                    not in self.removed_moves
+                )
             ):
-
-                # print(square)
-                self.current_threatened.append(
+                logging.info(f"Adding {piece} to {square}")
+                self.moves.append(
                     {
                         "piece": piece,
-                        "location": square,
-                        "threatening": position_options[piece],
+                        "position": square.copy(),
+                        "threatening": position_options[piece].copy(),
                     }
                 )
-                # print(self.current_threatened)
-                self.existing_positions.loc[square[0], square[1]] = piece
-                self.moves.append({"piece": piece, "position": square})
+                self.existing_positions[square[0]].iloc[square[1]] = piece
                 self.floating_pieces[piece] -= 1
                 if (sum(self.floating_pieces.values()) == 0) and (
                     self.existing_positions.to_dict(orient="records")
                     not in self.valid_configurations
                 ):
-
-                    # print(self.current_threatened)
-                    # print(self.existing_positions)
-                    # print("++++++++++++++++++++")
                     logging.info("Solution found!")
                     self.valid_configurations.append(
                         self.existing_positions.to_dict(orient="records")
@@ -133,19 +133,25 @@ class Board:
                     self.step_backward(square)
                     return
                 elif sum(self.floating_pieces.values()) > 0:
-                    while square != [self.x, self.y]:
-                        square = self.find_next_square(square)
-                        # print(square)
-                        threatened = []
-                        for i in range(len(self.current_threatened)):
-                            threatened += self.current_threatened[i]["threatening"]
-                        if square == [self.x, self.y]:
-                            return
-                        elif square not in threatened:
-                            self.step_forward(square)
+                    sq = self.find_next_square(square.copy())
+                    while sq != square:
+                        # print(sq)
 
-    # @my_logger
+                        threatened = []
+                        for i in range(len(self.moves)):
+                            threatened += self.moves[i]["threatening"]
+                        if sq == [self.x, self.y]:
+                            return
+                        elif sq not in threatened:
+                            # print(sq, self.moves)
+                            self.step_forward(sq)
+                        sq = self.find_next_square(sq)
+
+    @my_logger
     def step_backward(self, square):
+        """
+        This function backsteps up the tree and steps forward again if possible
+        """
         if square[0] >= self.x or square[1] >= self.y:
             return
         position_options = {
@@ -155,13 +161,18 @@ class Board:
             "N": Knight(square, self.x, self.y).get_threatening(),
             "K": King(square, self.x, self.y).get_threatening(),
         }
-        self.current_threatened = self.current_threatened[:-1]
-        self.existing_positions.loc[
-            self.moves[-1]["position"][0], self.moves[-1]["position"][1]
+        self.existing_positions[self.moves[-1]["position"][0]].iloc[
+            self.moves[-1]["position"][1]
         ] = self.base_board[0].iloc[0]
         self.floating_pieces[self.moves[-1]["piece"]] += 1
-        self.removed_moves.append(self.moves[-1])
-        self.moves = self.moves[:-1]
+        removed_piece = self.moves[-1]["piece"]
+        removed_position = self.moves[-1]["position"].copy()
+        logging.info(f"Removing {removed_piece} from {removed_position}" )
+        self.removed_moves.append(
+            {"piece": removed_piece, "position": removed_position}
+        )
+        # print("removed: ", self.removed_moves)
+        self.moves = self.moves[:-1].copy()
         self.step_forward(square)
 
     @my_logger
@@ -176,38 +187,18 @@ class Board:
         self.start_square = [0, 0]
         self.last_square = [self.x - 1, self.y - 1]
         # Stop once all squares have been looped over
-        while self.start_square[0] < self.x or self.start_square[1] < self.y:
-            # Changes the starting square for each loop through, appends on the start of the board to the end
-            for row_loc, row_value in (
-                self.base_board[self.start_square[0] :]
-                .append(self.base_board[: self.start_square[0]])
-                .iterrows()
-            ):
-                # Changing the starting col for each loop through
-                for col_loc in (
-                    row_value[self.start_square[1] :]
-                    .append(row_value[: self.start_square[1]])
-                    .index.tolist()
-                ):
-                    threatened = []
-                    for i in range(len(self.current_threatened)):
-                        threatened += self.current_threatened[i]["threatening"]
-                    if ([row_loc, col_loc] not in threatened) and sum(
-                        self.floating_pieces.values()
-                    ) > 0:
-                        self.step_forward([row_loc, col_loc])
-                    elif ([row_loc, col_loc] == self.last_square) or (
-                        sum(self.floating_pieces.values()) == 0
-                    ):
-                        if len(self.moves) > 0:
-                            self.step_backward([row_loc, col_loc])
+        while (self.start_square[0] < self.x-1 or self.start_square[1] < self.y-1) and self.completed == False :
+            square = self.start_square.copy()
+            if square == self.last_square:
+                self.completed = True
 
-            self.start_square = self.find_next_square(self.start_square)
+            self.step_forward(square)
+            self.start_square = self.find_next_square(square)
             self.existing_positions = self.base_board.copy()
-            self.current_threatened = []
-            self.floating_pieces = self.base_pieces.copy()
             self.moves = []
+            self.floating_pieces = self.base_pieces.copy()
             self.removed_moves = []
+            # input()
 
         if self.view:
             self.display_configs()
