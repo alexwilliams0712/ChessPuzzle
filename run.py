@@ -57,7 +57,7 @@ class Board:
         self.existing_positions = self.base_board.copy()  # positions in current config
         self.moves = []  # list of moves, will traverse back up this
         self.removed_moves = []  # List of moves removed by backsteps
-        self.completed = False
+        self.completed = 0
 
     @my_logger
     def check_board_legal(self):
@@ -113,8 +113,10 @@ class Board:
             ]
 
             if (
-                {"piece": piece, "position": square.copy()} in self.removed_moves
-            ) and piece == "K":
+                ({"piece": piece, "position": square.copy()} in self.removed_moves)
+                and (piece == "K")
+                and (len(self.moves) > 0)
+            ):
                 self.step_backward()
             threatened = []
             for i in range(len(self.moves)):
@@ -153,10 +155,12 @@ class Board:
                         self.valid_configurations.append(
                             self.existing_positions.to_dict(orient="records")
                         )
+
                         self.step_backward()
                 elif sum(self.floating_pieces.values()) > 0:
                     sq = self.find_next_square(square.copy())
-                    if sq == self.start_square:
+                    if (sq == self.start_square) and len(self.moves) > 0:
+
                         self.step_backward()
                     while sq != square.copy():
                         threatened = []
@@ -167,7 +171,7 @@ class Board:
                         elif sq not in threatened:
                             self.step_forward(sq)
                         sq = self.find_next_square(sq)
-        if square == self.last_square:
+        if (square == self.last_square) and (len(self.moves) > 0):
             self.step_backward()
 
     @my_logger
@@ -186,7 +190,7 @@ class Board:
             {"piece": removed_piece, "position": removed_position}
         )
         self.moves = self.moves[:-1].copy()
-        if removed_position == self.last_square:
+        if (removed_position == self.last_square) and (len(self.moves) > 0):
             self.step_backward()
         else:
             threatened = []
@@ -209,13 +213,10 @@ class Board:
         self.start_square = [0, 0]
         self.last_square = [self.x - 1, self.y - 1]
         # Stop once all squares have been looped over
-        while (
-            self.start_square[0] < self.x - 1 or self.start_square[1] < self.y - 1
-        ) and self.completed == False:
+        while self.completed < 2:
             square = self.start_square.copy()
-            if square == [self.x - 1, self.y - 1]:
-                self.completed = True
-
+            if square == [0, 0]:
+                self.completed += 1
             self.step_forward(square)
             self.last_square = self.start_square.copy()
             self.start_square = self.find_next_square(square)
@@ -227,7 +228,9 @@ class Board:
 
         if self.view:
             self.display_configs()
-        print(f"We have found {len(self.valid_configurations)} distinct configurations")
+        logging.info(
+            f"We have found {len(self.valid_configurations)} distinct configurations"
+        )
 
 
 if __name__ == "__main__":
