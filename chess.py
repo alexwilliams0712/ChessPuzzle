@@ -136,6 +136,7 @@ class Knight:
         Defines all squares threatened by the knight, and then ensures theyre actually on the board
         """
         threatened = [
+            [self.location[0] + 0, self.location[1] + 0],
             [self.location[0] + 1, self.location[1] + 2],
             [self.location[0] + 1, self.location[1] - 2],
             [self.location[0] + 2, self.location[1] + 1],
