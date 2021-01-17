@@ -18,5 +18,6 @@ Your solution will need to be able to run on a notebook having 4G RAM.
 ## Usage
 
 ```zsh
-$ python run.py --M {width} --N {height} --king {no. kings} --queen {no. queens} --rook {no. rooks} --bishop {no. bishops} --knight {no.knights}
+$ python run.py --view {True|False} --M {width} --N {height} --king {no. kings} --queen {no. queens} --rook {no. rooks} --bishop {no. bishops} --knight {no.knights}
 ```
+The view flag will display all configurations found, but with larger boards this becomes unwieldy.
