@@ -1,5 +1,5 @@
 """
-THis module contains classes to define each chess piece
+This module contains classes to define each chess piece
 """
 
 

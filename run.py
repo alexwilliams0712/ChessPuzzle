@@ -43,6 +43,11 @@ def handle_input():
     return args
 
 
+class SmallBoard(Exception):
+    def __init__(self, value):
+        self.value = value
+
+
 class Board:
     def __init__(self, m, n, K, N, Q, B, R, view):
         self.view = view
