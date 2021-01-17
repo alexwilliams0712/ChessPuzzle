@@ -4,6 +4,7 @@ import argparse
 from functools import wraps
 import logging
 from distutils.util import strtobool
+import tracemalloc
 
 from chess import King, Queen, Knight, Rook, Bishop
 
@@ -239,6 +240,7 @@ class Board:
 
 
 if __name__ == "__main__":
+    tracemalloc.start()
     args = handle_input()
     board = Board(
         m=int(args.m),
@@ -251,3 +253,8 @@ if __name__ == "__main__":
         view=strtobool(args.view),
     )
     board.run()
+    current, peak = tracemalloc.get_traced_memory()
+    logging.info(
+        f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB"
+    )
+    tracemalloc.stop()
